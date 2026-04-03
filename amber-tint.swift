@@ -163,11 +163,25 @@ struct AmberMenuView: View {
 
             Divider()
 
-            Button("Quit Amber Tint") {
-                GammaEngine.restore()
-                NSApplication.shared.terminate(nil)
+            HStack {
+                Button("About") {
+                    NSWorkspace.shared.open(URL(string: "https://amber.computer")!)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .font(.caption)
+
+                Spacer()
+
+                Button("Quit") {
+                    GammaEngine.restore()
+                    NSApplication.shared.terminate(nil)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .font(.caption)
+                .keyboardShortcut("q")
             }
-            .keyboardShortcut("q")
         }
         .padding(12)
         .frame(width: 220)
