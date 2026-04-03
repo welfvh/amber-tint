@@ -23,8 +23,8 @@ enum GammaEngine {
         let blueMax: CGGammaValue = Float(max(1.0 - intensity * 1.2, 0.0))
 
         // Green stays high through the amber zone, then drops via power curve
-        // pow(x, 0.4) keeps green high at low intensity, accelerates the drop at high
-        let greenMax: CGGammaValue = Float(1.0 - pow(intensity, 0.4) * 0.65)
+        // pow(x, 2.2) keeps green high at low intensity, accelerates the drop at high
+        let greenMax: CGGammaValue = Float(1.0 - pow(intensity, 2.2) * 0.65)
 
         let redMax: CGGammaValue = 1.0
 
