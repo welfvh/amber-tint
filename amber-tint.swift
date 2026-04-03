@@ -9,8 +9,8 @@ import CoreGraphics
 // MARK: - Gamma Engine
 
 /// Applies amber tint by clamping RGB channel maximums via CGSetDisplayTransferByFormula.
-/// Red stays at 1.0, green and blue are reduced proportionally to create warm amber.
-/// The 2:1 blue-to-green reduction ratio produces natural candlelight color.
+/// Red stays at 1.0, green and blue are reduced aggressively to create deep warm amber.
+/// At full intensity: green at 50%, blue at 10% — deep firelight (~1500K).
 enum GammaEngine {
 
     /// Apply amber tint to a single display.
@@ -19,8 +19,8 @@ enum GammaEngine {
     ///   - intensity: 0.0 (no tint) to 1.0 (deep amber ~1800K).
     static func apply(to display: CGDirectDisplayID, intensity: Double) {
         let redMax: CGGammaValue   = 1.0
-        let greenMax: CGGammaValue = Float(1.0 - intensity * 0.35)
-        let blueMax: CGGammaValue  = Float(1.0 - intensity * 0.70)
+        let greenMax: CGGammaValue = Float(1.0 - intensity * 0.50)
+        let blueMax: CGGammaValue  = Float(1.0 - intensity * 0.90)
 
         CGSetDisplayTransferByFormula(
             display,
@@ -177,10 +177,10 @@ struct AmberMenuView: View {
         // Rough color temperature mapping for display
         let temp: String
         switch state.intensity {
-        case 0.0..<0.3:  temp = "~4500K"
-        case 0.3..<0.6:  temp = "~3500K"
-        case 0.6..<0.85: temp = "~2700K"
-        default:          temp = "~1800K"
+        case 0.0..<0.3:  temp = "~3500K"
+        case 0.3..<0.6:  temp = "~2700K"
+        case 0.6..<0.85: temp = "~1800K"
+        default:          temp = "~1500K"
         }
         return "\(pct)% · \(temp)"
     }
