@@ -38,3 +38,16 @@ print("Gamma restored.")
 EOF
 swiftc /tmp/reset-gamma.swift -o "$SCRIPT_DIR/reset-gamma" -framework CoreGraphics
 echo "Built: $SCRIPT_DIR/reset-gamma"
+
+# Install target: copy to /Applications and add to Login Items
+if [[ "${1:-}" == "install" ]]; then
+    echo "Installing to /Applications..."
+    rm -rf "/Applications/$APP_NAME.app"
+    cp -R "$APP_DIR" "/Applications/$APP_NAME.app"
+    codesign -s - --force "/Applications/$APP_NAME.app"
+
+    # Add to Login Items via osascript
+    osascript -e "tell application \"System Events\" to make login item at end with properties {path:\"/Applications/$APP_NAME.app\", hidden:false}" 2>/dev/null || true
+    echo "Installed and added to Login Items."
+    echo "Launch: open '/Applications/$APP_NAME.app'"
+fi
