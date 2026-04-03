@@ -97,23 +97,45 @@ class DisplayWatcher {
 
 // MARK: - Amber State
 
-/// Observable state holding tint intensity (0.0 = off, >0 = on).
-/// Persists to UserDefaults. Every mutation re-applies gamma to all displays.
+/// Observable state: toggle + slider with memory.
+/// Toggle off remembers last intensity. Sliding to 0 turns off. Toggle on restores.
+/// Persists to UserDefaults.
 @Observable
 class AmberState {
+    /// Current slider position (0.0 = off)
     var intensity: Double {
         didSet {
             UserDefaults.standard.set(intensity, forKey: "amberIntensity")
+            // Sliding to 0 turns off; sliding above 0 remembers as last setting
+            if intensity > 0 {
+                lastIntensity = intensity
+                UserDefaults.standard.set(intensity, forKey: "amberLastIntensity")
+            }
             applyCurrentState()
         }
     }
 
+    /// Last non-zero intensity, for restoring on toggle-on
+    var lastIntensity: Double
+
     var isEnabled: Bool { intensity > 0 }
 
+    /// Toggle: off → restore last intensity, on → jump to 0
+    func toggle() {
+        if isEnabled {
+            intensity = 0
+        } else {
+            intensity = lastIntensity
+        }
+    }
+
     init() {
-        let saved = UserDefaults.standard.double(forKey: "amberIntensity")
-        // Default to 50% on first launch (UserDefaults returns 0.0 for missing keys)
-        self.intensity = UserDefaults.standard.object(forKey: "amberIntensity") != nil ? saved : 0.5
+        let defaults = UserDefaults.standard
+        let saved = defaults.object(forKey: "amberIntensity") != nil
+            ? defaults.double(forKey: "amberIntensity") : 0.5
+        let savedLast = defaults.double(forKey: "amberLastIntensity")
+        self.intensity = saved
+        self.lastIntensity = savedLast > 0 ? savedLast : 0.5
     }
 
     func applyCurrentState() {
@@ -127,12 +149,18 @@ class AmberState {
 
 // MARK: - Menu View
 
-/// SwiftUI menu bar popover: single slider (0% = off), quit.
+/// SwiftUI menu bar popover: toggle + slider, always visible, no resize.
 struct AmberMenuView: View {
     @Bindable var state: AmberState
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
+            Toggle("Amber Tint", isOn: Binding(
+                get: { state.isEnabled },
+                set: { _ in state.toggle() }
+            ))
+            .toggleStyle(.switch)
+
             HStack {
                 Image(systemName: "sun.min")
                     .foregroundStyle(.secondary)
