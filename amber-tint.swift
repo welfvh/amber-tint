@@ -9,18 +9,24 @@ import CoreGraphics
 // MARK: - Gamma Engine
 
 /// Applies amber tint by clamping RGB channel maximums via CGSetDisplayTransferByFormula.
-/// Red stays at 1.0, green and blue are reduced aggressively to create deep warm amber.
-/// At full intensity: green at 35%, blue at 0% — embers (~1200K).
+/// Non-linear curve: blue drops fast (amber zone), green lags behind and only
+/// drops hard at high intensity (embers zone). Single slider, both moods.
+/// 0–60%: warm, round amber (blue leads). 70–100%: embers (green catches up).
 enum GammaEngine {
 
     /// Apply amber tint to a single display.
     /// - Parameters:
     ///   - display: The CGDirectDisplayID to tint.
-    ///   - intensity: 0.0 (no tint) to 1.0 (pure red-orange, ~1200K).
+    ///   - intensity: 0.0 (no tint) to 1.0 (deep embers, ~1200K).
     static func apply(to display: CGDirectDisplayID, intensity: Double) {
-        let redMax: CGGammaValue   = 1.0
-        let greenMax: CGGammaValue = Float(1.0 - intensity * 0.65)
-        let blueMax: CGGammaValue  = Float(1.0 - intensity * 1.00)
+        // Blue drops fast and linearly — first thing to go
+        let blueMax: CGGammaValue = Float(max(1.0 - intensity * 1.2, 0.0))
+
+        // Green stays high through the amber zone, then drops via power curve
+        // pow(x, 0.4) keeps green high at low intensity, accelerates the drop at high
+        let greenMax: CGGammaValue = Float(1.0 - pow(intensity, 0.4) * 0.65)
+
+        let redMax: CGGammaValue = 1.0
 
         CGSetDisplayTransferByFormula(
             display,
