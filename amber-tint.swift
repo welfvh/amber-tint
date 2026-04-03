@@ -9,24 +9,19 @@ import CoreGraphics
 // MARK: - Gamma Engine
 
 /// Applies amber tint by clamping RGB channel maximums via CGSetDisplayTransferByFormula.
-/// Non-linear curve: blue drops fast (amber zone), green lags behind and only
-/// drops hard at high intensity (embers zone). Single slider, both moods.
-/// 0–60%: warm, round amber (blue leads). 70–100%: embers (green catches up).
+/// Linear curve with extended range: both channels drop proportionally (keeps the
+/// "round" amber feel), but the range goes all the way to embers at max.
+/// ~54% ≈ original amber (green 65%, blue 46%). 100% = deep embers (green 35%, blue 0%).
 enum GammaEngine {
 
     /// Apply amber tint to a single display.
     /// - Parameters:
     ///   - display: The CGDirectDisplayID to tint.
-    ///   - intensity: 0.0 (no tint) to 1.0 (deep embers, ~1200K).
+    ///   - intensity: 0.0 (no tint) to 1.0 (deep embers).
     static func apply(to display: CGDirectDisplayID, intensity: Double) {
-        // Blue drops fast and linearly — first thing to go
-        let blueMax: CGGammaValue = Float(max(1.0 - intensity * 1.2, 0.0))
-
-        // Green stays high through the amber zone, then drops via power curve
-        // pow(x, 2.2) keeps green high at low intensity, accelerates the drop at high
-        let greenMax: CGGammaValue = Float(1.0 - pow(intensity, 2.2) * 0.65)
-
-        let redMax: CGGammaValue = 1.0
+        let redMax: CGGammaValue   = 1.0
+        let greenMax: CGGammaValue = Float(1.0 - intensity * 0.65)
+        let blueMax: CGGammaValue  = Float(max(1.0 - intensity * 1.0, 0.0))
 
         CGSetDisplayTransferByFormula(
             display,
@@ -180,9 +175,7 @@ struct AmberMenuView: View {
 
     private var intensityLabel: String {
         let pct = Int(state.intensity * 100)
-        // Linear interpolation: 6500K (no tint) → 1200K (full)
-        let kelvin = Int(6500 - state.intensity * 5300)
-        return "\(pct)% · ~\(kelvin)K"
+        return "\(pct)%"
     }
 }
 
@@ -222,7 +215,7 @@ class AmberAppDelegate: NSObject, NSApplicationDelegate {
 struct AmberTintApp: App {
     @NSApplicationDelegateAdaptor(AmberAppDelegate.self) var delegate
 
-    @State private var state = AmberState()
+    @State private var state: AmberState
     @State private var watcher: DisplayWatcher?
 
     var body: some Scene {
@@ -233,7 +226,6 @@ struct AmberTintApp: App {
             AmberMenuView(state: state)
         }
         .menuBarExtraStyle(.window)
-        .onChange(of: state.isEnabled) { _, _ in }
         .defaultSize(width: 220, height: 160)
     }
 
