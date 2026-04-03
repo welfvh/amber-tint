@@ -10,17 +10,17 @@ import CoreGraphics
 
 /// Applies amber tint by clamping RGB channel maximums via CGSetDisplayTransferByFormula.
 /// Red stays at 1.0, green and blue are reduced aggressively to create deep warm amber.
-/// At full intensity: green at 50%, blue at 10% — deep firelight (~1500K).
+/// At full intensity: green at 35%, blue at 0% — embers (~1200K).
 enum GammaEngine {
 
     /// Apply amber tint to a single display.
     /// - Parameters:
     ///   - display: The CGDirectDisplayID to tint.
-    ///   - intensity: 0.0 (no tint) to 1.0 (deep amber ~1800K).
+    ///   - intensity: 0.0 (no tint) to 1.0 (pure red-orange, ~1200K).
     static func apply(to display: CGDirectDisplayID, intensity: Double) {
         let redMax: CGGammaValue   = 1.0
-        let greenMax: CGGammaValue = Float(1.0 - intensity * 0.50)
-        let blueMax: CGGammaValue  = Float(1.0 - intensity * 0.90)
+        let greenMax: CGGammaValue = Float(1.0 - intensity * 0.65)
+        let blueMax: CGGammaValue  = Float(1.0 - intensity * 1.00)
 
         CGSetDisplayTransferByFormula(
             display,
@@ -174,15 +174,9 @@ struct AmberMenuView: View {
 
     private var intensityLabel: String {
         let pct = Int(state.intensity * 100)
-        // Rough color temperature mapping for display
-        let temp: String
-        switch state.intensity {
-        case 0.0..<0.3:  temp = "~3500K"
-        case 0.3..<0.6:  temp = "~2700K"
-        case 0.6..<0.85: temp = "~1800K"
-        default:          temp = "~1500K"
-        }
-        return "\(pct)% · \(temp)"
+        // Linear interpolation: 6500K (no tint) → 1200K (full)
+        let kelvin = Int(6500 - state.intensity * 5300)
+        return "\(pct)% · ~\(kelvin)K"
     }
 }
 
