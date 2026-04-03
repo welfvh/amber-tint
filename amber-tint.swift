@@ -97,38 +97,27 @@ class DisplayWatcher {
 
 // MARK: - Amber State
 
-/// Observable state holding tint enabled/disabled and intensity.
+/// Observable state holding tint intensity (0.0 = off, >0 = on).
 /// Persists to UserDefaults. Every mutation re-applies gamma to all displays.
 @Observable
 class AmberState {
-    var isEnabled: Bool {
+    var intensity: Double {
         didSet {
-            UserDefaults.standard.set(isEnabled, forKey: "amberEnabled")
+            UserDefaults.standard.set(intensity, forKey: "amberIntensity")
             applyCurrentState()
         }
     }
 
-    var intensity: Double {
-        didSet {
-            UserDefaults.standard.set(intensity, forKey: "amberIntensity")
-            if isEnabled { applyCurrentState() }
-        }
-    }
+    var isEnabled: Bool { intensity > 0 }
 
     init() {
-        // Load persisted state, defaulting to enabled at 50% intensity
-        let defaults = UserDefaults.standard
-        if defaults.object(forKey: "amberEnabled") != nil {
-            self.isEnabled = defaults.bool(forKey: "amberEnabled")
-        } else {
-            self.isEnabled = true
-        }
-        let saved = defaults.double(forKey: "amberIntensity")
-        self.intensity = saved > 0 ? saved : 0.5
+        let saved = UserDefaults.standard.double(forKey: "amberIntensity")
+        // Default to 50% on first launch (UserDefaults returns 0.0 for missing keys)
+        self.intensity = UserDefaults.standard.object(forKey: "amberIntensity") != nil ? saved : 0.5
     }
 
     func applyCurrentState() {
-        if isEnabled {
+        if intensity > 0 {
             GammaEngine.applyToAll(intensity: intensity)
         } else {
             GammaEngine.restore()
@@ -138,28 +127,23 @@ class AmberState {
 
 // MARK: - Menu View
 
-/// SwiftUI menu bar popover: toggle, intensity slider, quit.
+/// SwiftUI menu bar popover: single slider (0% = off), quit.
 struct AmberMenuView: View {
     @Bindable var state: AmberState
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Toggle("Amber Tint", isOn: $state.isEnabled)
-                .toggleStyle(.switch)
-
-            if state.isEnabled {
-                HStack {
-                    Image(systemName: "sun.min")
-                        .foregroundStyle(.secondary)
-                    Slider(value: $state.intensity, in: 0.1...1.0, step: 0.05)
-                    Image(systemName: "sun.max.fill")
-                        .foregroundStyle(.orange)
-                }
-
-                Text(intensityLabel)
-                    .font(.caption)
+            HStack {
+                Image(systemName: "sun.min")
                     .foregroundStyle(.secondary)
+                Slider(value: $state.intensity, in: 0.0...1.0, step: 0.05)
+                Image(systemName: "sun.max.fill")
+                    .foregroundStyle(state.isEnabled ? .orange : .secondary)
             }
+
+            Text(intensityLabel)
+                .font(.caption)
+                .foregroundStyle(.secondary)
 
             Divider()
 
@@ -188,8 +172,8 @@ struct AmberMenuView: View {
     }
 
     private var intensityLabel: String {
-        let pct = Int(state.intensity * 100)
-        return "\(pct)%"
+        if state.intensity == 0 { return "off" }
+        return "\(Int(state.intensity * 100))%"
     }
 }
 
