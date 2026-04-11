@@ -5,6 +5,7 @@
 
 import SwiftUI
 import CoreGraphics
+import Carbon.HIToolbox
 
 // MARK: - Gamma Engine
 
@@ -92,6 +93,60 @@ class DisplayWatcher {
         let userData = Unmanaged<DisplayWatcher>.passUnretained(self).toOpaque()
         CGDisplayRemoveReconfigurationCallback(DisplayWatcher.callback, userData)
         timer?.invalidate()
+    }
+}
+
+// MARK: - Global Hotkey
+
+/// Registers a global keyboard shortcut via Carbon's RegisterEventHotKey.
+/// Used for Ctrl+F6 → toggle amber tint from anywhere on the system.
+/// NSEvent.addGlobalMonitorForEvents won't work — it can't observe keys
+/// when the app is unfocused without Accessibility permission.
+class HotKeyManager {
+    private var hotKeyRef: EventHotKeyRef?
+    private var handlerRef: EventHandlerRef?
+    var onTrigger: (() -> Void)?
+
+    /// Carbon virtual keycodes
+    private static let kVK_F6: UInt32 = 0x61
+
+    func register() {
+        // Install the event handler that fires when any registered hotkey is pressed
+        var eventType = EventTypeSpec(
+            eventClass: OSType(kEventClassKeyboard),
+            eventKind: UInt32(kEventHotKeyPressed)
+        )
+        InstallEventHandler(
+            GetApplicationEventTarget(),
+            { (_, _, userData) -> OSStatus in
+                guard let userData = userData else { return noErr }
+                let manager = Unmanaged<HotKeyManager>.fromOpaque(userData).takeUnretainedValue()
+                DispatchQueue.main.async { manager.onTrigger?() }
+                return noErr
+            },
+            1,
+            &eventType,
+            Unmanaged.passUnretained(self).toOpaque(),
+            &handlerRef
+        )
+
+        // Register Ctrl+F6 with our hotkey ID
+        let hotKeyID = EventHotKeyID(signature: OSType(0x414D4252) /* 'AMBR' */, id: 1)
+        RegisterEventHotKey(
+            HotKeyManager.kVK_F6,
+            UInt32(controlKey),
+            hotKeyID,
+            GetApplicationEventTarget(),
+            0,
+            &hotKeyRef
+        )
+    }
+
+    func unregister() {
+        if let hotKeyRef = hotKeyRef { UnregisterEventHotKey(hotKeyRef) }
+        if let handlerRef = handlerRef { RemoveEventHandler(handlerRef) }
+        hotKeyRef = nil
+        handlerRef = nil
     }
 }
 
@@ -211,6 +266,7 @@ struct AmberMenuView: View {
 class AmberAppDelegate: NSObject, NSApplicationDelegate {
     var state: AmberState?
     var displayWatcher: DisplayWatcher?
+    var hotKeyManager: HotKeyManager?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Re-apply after wake — macOS resets gamma tables on sleep/wake
@@ -225,6 +281,7 @@ class AmberAppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         GammaEngine.restore()
         displayWatcher?.stop()
+        hotKeyManager?.unregister()
     }
 
     @objc private func handleWake() {
@@ -265,6 +322,11 @@ struct AmberTintApp: App {
         }
         watcher.start()
 
+        // Wire up Ctrl+F6 global hotkey to toggle tint
+        let hotKey = HotKeyManager()
+        hotKey.onTrigger = { initialState.toggle() }
+        hotKey.register()
+
         // Store references for lifecycle management
         _state = State(initialValue: initialState)
         _watcher = State(initialValue: watcher)
@@ -274,6 +336,7 @@ struct AmberTintApp: App {
             if let del = NSApplication.shared.delegate as? AmberAppDelegate {
                 del.state = initialState
                 del.displayWatcher = watcher
+                del.hotKeyManager = hotKey
             }
         }
 

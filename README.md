@@ -25,6 +25,8 @@ Menu bar app with a single slider:
 - **~70%** — deep amber
 - **100%** — embers (zero blue, for late night)
 
+Toggle on/off from anywhere with **⌃F6**.
+
 Handles multi-monitor, sleep/wake recovery, and display hotplug. Restores gamma on quit.
 
 ## How it works
